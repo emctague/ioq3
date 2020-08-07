@@ -742,10 +742,15 @@ static void SV_SendClientGameState( client_t *client ) {
 
 	// write the configstrings
 	for ( start = 0 ; start < MAX_CONFIGSTRINGS ; start++ ) {
-		if (sv.configstrings[start][0]) {
+		if (sv.configstrings[start].net[0]) {
 			MSG_WriteByte( &msg, svc_configstring );
 			MSG_WriteShort( &msg, start );
-			MSG_WriteBigString( &msg, sv.configstrings[start] );
+
+            if (Sys_IsLANAddress(client->netchan.remoteAddress)) {
+                MSG_WriteBigString( &msg, sv.configstrings[start].lan );
+			} else {
+                MSG_WriteBigString( &msg, sv.configstrings[start].net );
+			}
 		}
 	}
 

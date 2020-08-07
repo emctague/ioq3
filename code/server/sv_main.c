@@ -1114,11 +1114,11 @@ void SV_Frame( int msec ) {
 
 	// update infostrings if anything has been changed
 	if ( cvar_modifiedFlags & CVAR_SERVERINFO ) {
-		SV_SetConfigstring( CS_SERVERINFO, Cvar_InfoString( CVAR_SERVERINFO ) );
+	    SV_SetServerInfoConfig();
 		cvar_modifiedFlags &= ~CVAR_SERVERINFO;
 	}
 	if ( cvar_modifiedFlags & CVAR_SYSTEMINFO ) {
-		SV_SetConfigstring( CS_SYSTEMINFO, Cvar_InfoString_Big( CVAR_SYSTEMINFO ) );
+		SV_SetConfigstring( CS_SYSTEMINFO, Cvar_InfoString_Big( CVAR_SYSTEMINFO ), NULL );
 		cvar_modifiedFlags &= ~CVAR_SYSTEMINFO;
 	}
 
@@ -1155,6 +1155,36 @@ void SV_Frame( int msec ) {
 
 	// send a heartbeat to the master if needed
 	SV_MasterHeartbeat(HEARTBEAT_FOR_MASTER);
+}
+
+/*
+====================
+SV_SetServerInfoConfig
+
+Update the CS_SERVERINFO config string to match current config.
+Allows alternative variable values to be sent on LAN connections.
+====================
+*/
+void SV_SetServerInfoConfig( void ) {
+    char regInfoString[MAX_INFO_STRING];
+    char *lanInfoString = NULL;
+    char *lanDLURL;
+    char tempDLURL[MAX_STRING_CHARS];
+
+    Q_strncpyz(regInfoString, Cvar_InfoString( CVAR_SERVERINFO ), MAX_INFO_STRING);
+    lanDLURL = Cvar_VariableString("sv_dlLANURL");
+
+    if (*lanDLURL) {
+        Q_strncpyz(tempDLURL, Cvar_VariableString("sv_dlURL"), MAX_STRING_CHARS);
+        Cvar_Set("sv_dlURL", lanDLURL);
+        lanInfoString = Cvar_InfoString( CVAR_SERVERINFO );
+    }
+
+    SV_SetConfigstring( CS_SERVERINFO, regInfoString, lanInfoString );
+
+    if (*lanDLURL) {
+        Cvar_Set("sv_dlURL", tempDLURL);
+    }
 }
 
 /*

@@ -987,7 +987,7 @@ static void SV_RankNewGameCBF( GR_NEWGAME* gr_newgame, void* cbf_arg )
 		memset(info,0,sizeof(info));
 		Info_SetValueForKey( info, "rankingsGameKey", s_rankings_game_key );
 		Info_SetValueForKey( info, "rankingsGameID", gameid );
-		SV_SetConfigstring( CS_GRANK, info );
+		SV_SetConfigstring( CS_GRANK, info, NULL );
 
 		// initialize client status
 		for( i = 0; i < sv_maxclients->value; i++ )

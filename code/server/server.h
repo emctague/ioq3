@@ -67,6 +67,10 @@ typedef enum {
 } serverState_t;
 
 typedef struct {
+    char *net, *lan; // Local and internet variants of config string
+} svConfigPair_t;
+
+typedef struct {
 	serverState_t	state;
 	qboolean		restarting;			// if true, send configstring changes during SS_LOADING
 	int				serverId;			// changes each server start
@@ -78,7 +82,7 @@ typedef struct {
 	int				snapshotCounter;	// incremented for each snapshot built
 	int				timeResidual;		// <= 1000 / sv_frame->value
 	int				nextFrameTime;		// when time > nextFrameTime, process world
-	char			*configstrings[MAX_CONFIGSTRINGS];
+	svConfigPair_t  configstrings[MAX_CONFIGSTRINGS];
 	svEntity_t		svEntities[MAX_GENTITIES];
 
 	char			*entityParsePoint;	// used during game VM init
@@ -343,12 +347,14 @@ void SV_RemoveOperatorCommands (void);
 void SV_MasterShutdown (void);
 int SV_RateMsec(client_t *client);
 
+void SV_SetServerInfoConfig( void );
+
 
 
 //
 // sv_init.c
 //
-void SV_SetConfigstring( int index, const char *val );
+void SV_SetConfigstring( int index, const char *val, const char *lanVal );
 void SV_GetConfigstring( int index, char *buffer, int bufferSize );
 void SV_UpdateConfigstrings( client_t *client );
 

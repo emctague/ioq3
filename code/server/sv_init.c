@@ -36,7 +36,14 @@ static void SV_SendConfigstring(client_t *client, int index)
 	int maxChunkSize = MAX_STRING_CHARS - 24;
 	int len;
 
-	len = strlen(sv.configstrings[index]);
+	char *confString = sv.configstrings[index].net;
+
+	if (Sys_IsLANAddress(client->netchan.remoteAddress)) {
+	    confString = sv.configstrings[index].lan;
+	}
+
+
+	len = strlen(confString);
 
 	if( len >= maxChunkSize ) {
 		int		sent = 0;
@@ -54,7 +61,7 @@ static void SV_SendConfigstring(client_t *client, int index)
 			else {
 				cmd = "bcs1";
 			}
-			Q_strncpyz( buf, &sv.configstrings[index][sent],
+			Q_strncpyz( buf, &confString[sent],
 				maxChunkSize );
 
 			SV_SendServerCommand( client, "%s %i \"%s\"\n", cmd,
@@ -66,7 +73,7 @@ static void SV_SendConfigstring(client_t *client, int index)
 	} else {
 		// standard cs, just send it
 		SV_SendServerCommand( client, "cs %i \"%s\"\n", index,
-			sv.configstrings[index] );
+			confString );
 	}
 }
 
@@ -103,7 +110,10 @@ SV_SetConfigstring
 
 ===============
 */
-void SV_SetConfigstring (int index, const char *val) {
+void SV_SetConfigstring (int index, const char *val, const char *lanVal) {
+
+    if (!lanVal) lanVal = val;
+
 	int		i;
 	client_t	*client;
 
@@ -113,16 +123,19 @@ void SV_SetConfigstring (int index, const char *val) {
 
 	if ( !val ) {
 		val = "";
+		lanVal = "";
 	}
 
 	// don't bother broadcasting an update if no change
-	if ( !strcmp( val, sv.configstrings[ index ] ) ) {
+	if ( !strcmp( val, sv.configstrings[ index ].net ) && !strcmp( lanVal, sv.configstrings[ index ].lan ) ) {
 		return;
 	}
 
-	// change the string in sv
-	Z_Free( sv.configstrings[index] );
-	sv.configstrings[index] = CopyString( val );
+	// free up prev. string in sv
+	Z_Free( sv.configstrings[index].net );
+	Z_Free( sv.configstrings[index].lan );
+    sv.configstrings[index].net = CopyString( val );
+    sv.configstrings[index].lan = CopyString( lanVal );
 
 	// send it to all the clients if we aren't
 	// spawning a new server
@@ -139,7 +152,7 @@ void SV_SetConfigstring (int index, const char *val) {
 			if ( index == CS_SERVERINFO && client->gentity && (client->gentity->r.svFlags & SVF_NOSERVERINFO) ) {
 				continue;
 			}
-		
+
 			SV_SendConfigstring(client, index);
 		}
 	}
@@ -158,12 +171,12 @@ void SV_GetConfigstring( int index, char *buffer, int bufferSize ) {
 	if ( index < 0 || index >= MAX_CONFIGSTRINGS ) {
 		Com_Error (ERR_DROP, "SV_GetConfigstring: bad index %i", index);
 	}
-	if ( !sv.configstrings[index] ) {
+	if ( !sv.configstrings[index].net ) {
 		buffer[0] = 0;
 		return;
 	}
 
-	Q_strncpyz( buffer, sv.configstrings[index], bufferSize );
+	Q_strncpyz( buffer, sv.configstrings[index].net, bufferSize );
 }
 
 
@@ -365,8 +378,9 @@ static void SV_ClearServer(void) {
 	int i;
 
 	for ( i = 0 ; i < MAX_CONFIGSTRINGS ; i++ ) {
-		if ( sv.configstrings[i] ) {
-			Z_Free( sv.configstrings[i] );
+		if ( sv.configstrings[i].net ) {
+			Z_Free( sv.configstrings[i].net );
+			Z_Free( sv.configstrings[i].lan );
 		}
 	}
 	Com_Memset (&sv, 0, sizeof(sv));
@@ -457,7 +471,8 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 	// wipe the entire per-level structure
 	SV_ClearServer();
 	for ( i = 0 ; i < MAX_CONFIGSTRINGS ; i++ ) {
-		sv.configstrings[i] = CopyString("");
+		sv.configstrings[i].net = CopyString("");
+        sv.configstrings[i].lan = CopyString("");
 	}
 
 	// make sure we are not paused
@@ -590,9 +605,9 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 	// save systeminfo and serverinfo strings
 	Q_strncpyz( systemInfo, Cvar_InfoString_Big( CVAR_SYSTEMINFO ), sizeof( systemInfo ) );
 	cvar_modifiedFlags &= ~CVAR_SYSTEMINFO;
-	SV_SetConfigstring( CS_SYSTEMINFO, systemInfo );
+	SV_SetConfigstring( CS_SYSTEMINFO, systemInfo, NULL );
 
-	SV_SetConfigstring( CS_SERVERINFO, Cvar_InfoString( CVAR_SERVERINFO ) );
+    SV_SetServerInfoConfig();
 	cvar_modifiedFlags &= ~CVAR_SERVERINFO;
 
 	// any media configstring setting now should issue a warning
@@ -671,6 +686,7 @@ void SV_Init (void)
 
 	sv_allowDownload = Cvar_Get ("sv_allowDownload", "0", CVAR_SERVERINFO);
 	Cvar_Get ("sv_dlURL", "", CVAR_SERVERINFO | CVAR_ARCHIVE);
+	Cvar_Get ("sv_dlLANURL", "", CVAR_SERVERINFO | CVAR_ARCHIVE);
 	
 	sv_master[0] = Cvar_Get("sv_master1", MASTER_SERVER_NAME, 0);
 	sv_master[1] = Cvar_Get("sv_master2", "master.ioquake3.org", 0);
