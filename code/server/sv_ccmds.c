@@ -145,6 +145,34 @@ static client_t *SV_GetPlayerByNum( void ) {
 
 /*
 ==================
+SV_RandomMap_f
+
+Restart the server on a randomly selected map.
+=================
+*/
+static void SV_RandomMap_f( void ) {
+    int         nfiles;
+    char        **filenames;
+    unsigned    randomNumber;
+    char        filename[MAX_STRING_CHARS];
+    char        command[MAX_STRING_CHARS];
+
+    filenames = FS_ListFiles("maps", "bsp", &nfiles);
+
+    Com_RandomBytes((byte*)&randomNumber, sizeof(randomNumber));
+
+    Q_strncpyz( filename, filenames[ randomNumber % nfiles ], MAX_STRING_CHARS );
+    COM_StripExtension(filename, filename, sizeof(filename));
+    Com_sprintf(command, sizeof(command), "map %s\n", filename);
+
+    Cmd_ExecuteString(command);
+
+    FS_FreeFileList( filenames );
+}
+
+
+/*
+==================
 SV_Map_f
 
 Restart the server on a different map
@@ -1545,6 +1573,7 @@ void SV_AddOperatorCommands( void ) {
 	Cmd_AddCommand ("map_restart", SV_MapRestart_f);
 	Cmd_AddCommand ("sectorlist", SV_SectorList_f);
 	Cmd_AddCommand ("map", SV_Map_f);
+	Cmd_AddCommand ("randommap", SV_RandomMap_f);
 	Cmd_SetCommandCompletionFunc( "map", SV_CompleteMapName );
 #ifndef PRE_RELEASE_DEMO
 	Cmd_AddCommand ("devmap", SV_Map_f);
